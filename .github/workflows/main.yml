@@ -1,0 +1,96 @@
+name: Build kaeru
+
+on:
+  workflow_dispatch:
+    inputs:
+      codename:
+        description: "input codename device"
+        required: true
+        type: string
+        default: "ruby"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout source code
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. Install dependency
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install gcc-arm-linux-gnueabihf python3 python3-pip git make
+
+      # 3. Build codename
+      - name: Build kaeru
+        run: |
+          chmod +x build.sh
+
+          echo "Building device: ${{ inputs.codename }}"
+
+          ./build.sh "${{ inputs.codename }}" lk.img
+
+      # 4file *-kaeru.bin
+      - name: Find binaries
+        id: find_bins
+        run: |
+          echo "getting file *-kaeru.bin..."
+
+          mapfile -t BIN_FILES < <(
+            find . -type f -name '*-kaeru.bin' \
+              -not -path './.git/*'
+          )
+
+          if [ "${#BIN_FILES[@]}" -eq 0 ]; then
+            echo "ERROR: not found file *-kaeru.bin"
+            exit 1
+          fi
+
+          echo "File not found:"
+          printf '%s\n' "${BIN_FILES[@]}"
+
+          mkdir -p release_files
+
+          # Copy release
+          for file in "${BIN_FILES[@]}"; do
+            cp "$file" release_files/
+          done
+
+          echo "total=${#BIN_FILES[@]}" >> "$GITHUB_OUTPUT"
+
+      # 5.  ZIP
+      - name: Create ZIP
+        run: |
+          cd release_files
+
+          zip -r "../${{ inputs.codename }}-kaeru.zip" .
+
+          cd ..
+
+          echo "Isi ZIP:"
+          unzip -l "${{ inputs.codename }}-kaeru.zip"
+
+      # GitHub Release
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.codename }}
+          name: Fenrir - ${{ inputs.codename }}
+          body: |
+            ## Kaeru Build
+
+            Device: `${{ inputs.codename }}`
+
+            Build date: `${{ github.event.repository.updated_at }}`
+
+            Automatic build script from GitHub Actions.
+          files: |
+            ${{ inputs.codename }}-kaeru.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
