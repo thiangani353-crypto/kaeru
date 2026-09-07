@@ -53,7 +53,7 @@ jobs:
             exit 1
           fi
 
-          echo "File not found:"
+          echo "File found:"
           printf '%s\n' "${BIN_FILES[@]}"
 
           mkdir -p release_files
@@ -82,7 +82,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ inputs.codename }}
-          name: Fenrir - ${{ inputs.codename }}
+          name: Kaeru - ${{ inputs.codename }}
           body: |
             ## Kaeru Build
 
